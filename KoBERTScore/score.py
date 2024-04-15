@@ -4,7 +4,7 @@ import os
 import torch
 import torch.nn.functional as F
 from collections import Counter
-from transformers import BertModel, BertTokenizer
+from transformers import AutoModel, AutoTokenizer
 from tqdm import tqdm
 
 
@@ -28,11 +28,11 @@ def bert_score(bert_tokenizer, bert_model, references, candidates,
         F (torch.tensor) : F-BERTScore
 
     Examples:
-        >>> from transformers import BertModel, BertTokenizer
+        >>> from transformers import AutoModel, AutoTokenizer
 
         >>> model_name = "bert-base-uncased"
-        >>> tokenizer = BertTokenizer.from_pretrained(model_name)
-        >>> encoder = BertModel.from_pretrained(model_name)
+        >>> tokenizer = AutoTokenizer.from_pretrained(model_name)
+        >>> encoder = AutoModel.from_pretrained(model_name)
 
         >>> references = ['hello world', 'my name is lovit', 'oh hi', 'where I am', 'where we are going']
         >>> candidates = ['Hellow words', 'I am lovit', 'oh hello', 'where am I', 'where we go']
@@ -72,9 +72,9 @@ def sents_to_tensor(bert_tokenizer, input_sents):
             True token is 1 and padded / cls / sep token is 0
 
     Examples::
-        >>> from transformers import BertTokenizer
+        >>> from transformers import AutoTokenizer
         >>> model_name = "bert-base-uncased"
-        >>> tokenizer = BertTokenizer.from_pretrained(model_name)
+        >>> tokenizer = AutoTokenizer.from_pretrained(model_name)
         >>> input_sents = ['Hellow words', 'I am lovit', 'oh hello', 'where am I', 'where we go']
         >>> sents_to_tensor(tokenizer, input_sents)
         $ (tensor([[ 101, 7592, 2860, 2616,  102,    0,    0],
@@ -125,8 +125,10 @@ def bert_forwarding(bert_model, input_ids, attention_mask=None, output_layer_ind
         attention_mask = attention_mask.to(device)
 
     with torch.no_grad():
-        _, _, hidden_states = bert_model(
-            input_ids, attention_mask=attention_mask, output_hidden_states=True)
+        outputs = bert_model(input_ids, attention_mask=attention_mask, output_hidden_states=True)
+        hidden_states = outputs.hidden_states #updated 
+        print(f"Type of hidden_states: {type(hidden_states)}")
+                
     if output_layer_index == 'all':
         return [h.cpu() for h in hidden_states]
     return hidden_states[output_layer_index].cpu()
@@ -336,7 +338,7 @@ class BERTScore:
         if idf is None:
             idf = self.idf
 
-        from .tasks import plot_bertscore_detail
+        from ...edited_KoBERTScore.tasks import plot_bertscore_detail
         figure = plot_bertscore_detail(
             reference, candidate, self.tokenizer, self.encoder, idf,
             -1, height, width, title, return_gridplot)
@@ -353,11 +355,11 @@ MODEL_TO_BEST_LAYER = {
 
 def load_model(model_name_or_path, best_layer=-1):
     if os.path.exists(model_name_or_path):
-        tokenizer = BertTokenizer.from_pretrained(model_name_or_path)
-        encoder = BertModel.from_pretrained(model_name_or_path)
+        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
+        encoder = AutoModel.from_pretrained(model_name_or_path)
     elif model_name_or_path in MODEL_TO_BEST_LAYER:
-        tokenizer = BertTokenizer.from_pretrained(model_name_or_path)
-        encoder = BertModel.from_pretrained(model_name_or_path)
+        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
+        encoder = AutoModel.from_pretrained(model_name_or_path)
     else:
         raise ValueError(
             f'Ko-BERTScore uses only {list(MODEL_TO_BEST_LAYER.keys())} or local model'
